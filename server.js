@@ -298,6 +298,40 @@ app.post("/getlastversion", jsonParser, function(request, response_getlastversio
     });
     req.end();
 });
+
+function listen_func() {
+    let autorun_ip = ""
+    let log_ip = ""
+
+
+    if(process.env.colab !== undefined){
+        if(process.env.colab == 2){
+            is_colab = false;
+        }
+    }
+    console.log('Launching...');
+    initializationCards();
+    clearUploads();
+    initCardeditor();
+
+    if (!preferV4){
+        autorun_ip = '[::1]'
+        log_ip = '::1'
+    } else {
+        autorun_ip = "127.0.0.1"
+        log_ip = '127.0.0.1'
+    }
+
+    const autorunUrl = new URL(
+            ('http://') +
+            (autorun_ip) +
+            (':' + server_port)
+            );
+    if(autorun) open(autorunUrl.toString());
+    console.log(`TavernAI has started and is available on IP: ${log_ip} at PORT: ${server_port}`);
+    console.log('TavernAI is bound to interface: ' + listenIpV6)
+}
+
 //**************Kobold api
 app.post("/generate", jsonParser, function(request, response_generate = response){
     if(!request.body) return response_generate.sendStatus(400);
@@ -2538,43 +2572,11 @@ const e = require('express');
 app.use('/api/characloud', charaCloudRoute);
 //###########################  Server start  ########################
 app.listen(server_port, listenIp, function() {
-    if(process.env.colab !== undefined){
-        if(process.env.colab == 2){
-            is_colab = false;
-        }
-    }
-    console.log('Launching...');
-    initializationCards();
-    clearUploads();
-    initCardeditor();
-    const autorunUrl = new URL(
-            ('http://') +
-            ('127.0.0.1') +
-            (':' + server_port)
-            );
-    if(autorun) open(autorunUrl.toString());
-    console.log('TavernAI has started and is available on IP: 127.0.0.1 at PORT: '+server_port);
-    console.log('TavernAI is bound to interface: ' + listenIp)
+    listen_func()
 });
 
 app.listen(server_port, listenIpV6, function() {
-    if(process.env.colab !== undefined){
-        if(process.env.colab == 2){
-            is_colab = false;
-        }
-    }
-    console.log('Launching...');
-    initializationCards();
-    clearUploads();
-    initCardeditor();
-    const autorunUrl = new URL(
-            ('http://') +
-            ('127.0.0.1') +
-            (':' + server_port)
-            );
-    if(autorun) open(autorunUrl.toString());
-    console.log('TavernAI has started and is available on IP: 127.0.0.1 at PORT: '+server_port);
-    console.log('TavernAI is bound to interface: ' + listenIpV6)
+    listen_func()
 });
 
 
