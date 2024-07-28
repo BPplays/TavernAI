@@ -76,6 +76,18 @@ if (!whitelistMode && (ipaddr.parse(listenIpV6).range() !== 'loopback' || ipaddr
     );
 }
 const preferV4 = config.preferV4;
+const disableV4 = config.disableV4;
+const disableV6 = config.disableV6;
+if (preferV4 && disableV4) {
+    console.error("can't use preferV4 and disableV4 at the same time");
+    process.exit(1);
+}
+if (disableV6 && disableV4) {
+    console.error("can't disable ipv6 and ipv4");
+    process.exit(1);
+}
+
+
 const autorun = config.autorun;
 const characterFormat = config.characterFormat;
 const charaCloudMode = config.charaCloudMode;
@@ -299,27 +311,41 @@ app.post("/getlastversion", jsonParser, function(request, response_getlastversio
     req.end();
 });
 
-function listen_func() {
-    let autorun_ip = ""
-    let log_ip = ""
-
-
+function listen_init() {
     if(process.env.colab !== undefined){
         if(process.env.colab == 2){
             is_colab = false;
         }
     }
-    console.log('Launching...');
     initializationCards();
     clearUploads();
     initCardeditor();
+}
+
+
+function listen_func() {
+    let autorun_ip = "";
+    let log_ip = "";
+
+    let log_listen = "";
+
+
+    console.log('Launching...');
 
     if (!preferV4){
-        autorun_ip = '[::1]'
-        log_ip = '::1'
+        autorun_ip = '[::1]';
+        log_ip = '::1';
     } else {
-        autorun_ip = "127.0.0.1"
-        log_ip = '127.0.0.1'
+        autorun_ip = "127.0.0.1";
+        log_ip = '127.0.0.1';
+    }
+
+    if (!disableV6) {
+        log_listen += `ipv6: "${listenIpV6}" `
+    }
+
+    if (!disableV4) {
+        log_listen += `ipv4: "${listenIp}"`
     }
 
     const autorunUrl = new URL(
@@ -329,7 +355,7 @@ function listen_func() {
             );
     if(autorun) open(autorunUrl.toString());
     console.log(`TavernAI has started and is available on IP: ${log_ip} at PORT: ${server_port}`);
-    console.log('TavernAI is bound to interface: ' + listenIpV6)
+    console.log('TavernAI is bound to ' + log_listen)
 }
 
 //**************Kobold api
@@ -2571,13 +2597,23 @@ const charaCloudRoute = require('./routes/characloud');
 const e = require('express');
 app.use('/api/characloud', charaCloudRoute);
 //###########################  Server start  ########################
-app.listen(server_port, listenIp, function() {
-    listen_func()
-});
+if (!disableV4) {
+    app.listen(server_port, listenIp, function() {
+        listen_init();
+        if (preferV4) {
+            listen_func();
+        }
+    });
+}
 
-app.listen(server_port, listenIpV6, function() {
-    listen_func()
-});
+if (!disableV6) {
+    app.listen(server_port, listenIpV6, function() {
+        listen_init();
+        if (!preferV4) {
+            listen_func();
+        }
+    });
+}
 
 
 function initializationCards() {
