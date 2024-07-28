@@ -37,10 +37,24 @@ const config = require(path.join(process.cwd(), './config.conf'));
 const server_port = config.port;
 const whitelist = config.whitelist;
 const whitelistMode = config.whitelistMode;
+let listenIpV6 = null;
 let listenIp = null;
+
+if (config.listenIpV6) {
+    // If an advanced user has set the listen IP we use it explicitly
+    listenIpV6 = config.listenIpV6;
+} else if (!whitelistMode || whitelist.length > 1) {
+    // If whitelist mode is disabled OR there are multiple IPs in the whitelist
+    // we listen on all interfaces.
+    listenIpV6 = '::';
+} else {
+    // Otherwise we listen on the loopback address only
+    listenIpV6 = '::1';
+}
+
 if (config.listenIp) {
     // If an advanced user has set the listen IP we use it explicitly
-    listenIp = config.listenIp;    
+    listenIp = config.listenIp;
 } else if (!whitelistMode || whitelist.length > 1) {
     // If whitelist mode is disabled OR there are multiple IPs in the whitelist
     // we listen on all interfaces.
@@ -49,12 +63,14 @@ if (config.listenIp) {
     // Otherwise we listen on the loopback address only
     listenIp = '127.0.0.1';
 }
-if (!whitelistMode && ipaddr.parse(listenIp).range() !== 'loopback') {
+
+
+if (!whitelistMode && ipaddr.parse(listenIpV6).range() !== 'loopback' && ipaddr.parse(listenIp).range() !== 'loopback') {
     console.warn(
-`WARNING: You have configured TavernAI to listen on an IP address that 
-         is not a loopback address ('${listenIp}'), and you have not enabled 
-         white list mode. This means that your TavernAI server will be 
-         accessible from other computers on your network. If you do not want 
+`WARNING: You have configured TavernAI to listen on an IP address that
+         is not a loopback address ('${listenIpV6}', and/or '${listenIp}'), and you have not enabled
+         white list mode. This means that your TavernAI server will be
+         accessible from other computers on your network. If you do not want
          this, please change the listenIp setting in your config.conf file or
          enable and configure white list mode.`
     );
@@ -251,10 +267,10 @@ app.use('/User%20Avatars', (req, res) => {
 });
 app.use(multer({dest:"uploads"}).single("avatar"));
 app.get("/", function(request, response){
-    response.sendFile(__dirname + "/public/index.html"); 
+    response.sendFile(__dirname + "/public/index.html");
 });
 app.get("/notes/*", function(request, response){
-    response.sendFile(__dirname + "/public"+request.url+".html"); 
+    response.sendFile(__dirname + "/public"+request.url+".html");
 });
 app.post("/getlastversion", jsonParser, function(request, response_getlastversion = response){
     if(!request.body) return response_getlastversion.sendStatus(400);
@@ -491,9 +507,9 @@ app.post("/changechatname", jsonParser, function(request, response){
         let fileContents = fs.readFileSync(filePath, 'utf8');
         let lines = fileContents.split('\n');
         let firstLine = JSON.parse(lines[0]);
-        firstLine.chat_name = request.body.chat_name;  
+        firstLine.chat_name = request.body.chat_name;
         lines[0] = JSON.stringify(firstLine);
-        // Join updated lines 
+        // Join updated lines
         fileContents = lines.join('\n');
         //write
         //let chat_data = request.body.chat;
@@ -624,7 +640,7 @@ app.post("/getstatus", jsonParser, function(request, response_getstatus = respon
     client.get(api_server+"/v1/model",args, function (data, response) {
         if(response.statusCode == 200){
             if(data.result != "ReadOnly"){
-                
+
                 //response_getstatus.send(data.result);
             }else{
                 data.result = "no_connection";
@@ -771,7 +787,7 @@ function charaFormatData(data){
     }
     let char = {public_id: checkCharaProp(data.public_id), public_id_short: checkCharaProp(data.public_id_short), user_name: checkCharaProp(data.user_name), user_name_view: checkCharaProp(data.user_name_view), name: name, description: checkCharaProp(data.description), short_description: checkCharaProp(short_description), personality: checkCharaProp(data.personality), first_mes: checkCharaProp(data.first_mes), chat: Date.now(), mes_example: checkCharaProp(data.mes_example), scenario: checkCharaProp(data.scenario), categories: categories, create_date_online: create_date_online, edit_date_online: edit_date_online, create_date_local: create_date_local, edit_date_local: edit_date_local, add_date_local: add_date_local, last_action_date: last_action_date, online: data.online, nsfw: data.nsfw, spec: "tavern_ai", spec_version: "1.0"};
     // Filtration
-    if(data.public_id === undefined){ 
+    if(data.public_id === undefined){
         char.public_id = uuid.v4().replace(/-/g, '');
     }else{
         if(data.public_id == "undefined" || data.public_id.length === 0){
@@ -828,7 +844,7 @@ app.post("/createroom", urlencodedParser, async function(request, response){
     // let target_img = setCardName(request.body.ch_name);
     // since we are planning to re-use existing code, ch_name == filename (jsonl filename), since changing vvariables means we need
     // to also change the html file's form's input "name" attributes
-    let target_file = request.body.ch_name; 
+    let target_file = request.body.ch_name;
     let characterNames = request.body.room_characters;
     let scenario = request.body.room_scenario;
     const fileExtension = ".jsonl";
@@ -977,7 +993,7 @@ async function charaWrite(source_img, data, target_img, format = 'webp') {
                 break;
             default:
                 break;
-        }   
+        }
     } catch (err) {
         throw err;
     }
@@ -1037,7 +1053,7 @@ async function charaRead(img_url, input_format){
 // The function already appends the roomsPath before filedir (filename), and the .jsonl extension after the filedir
 async function roomWrite(filedir, characterNames, user_name="You", create_date="", notes="", notes_type="discr", scenario="", chat=[]) {
     try {
-        const fileExtension = ".jsonl"; 
+        const fileExtension = ".jsonl";
         let fileContent = ''; // In string form
         let createDate = create_date ? create_date : Date.now();
         // let characterNamesArray = characterNames.isArray() ? characterNames : [characterNames];
@@ -1292,18 +1308,18 @@ app.post("/adduseravatar", urlencodedParser, function(request, response){
     try {
         response_dw_bg = response;
         if(!request.body) return response.sendStatus(400);
-        let filedata = request.file; 
+        let filedata = request.file;
         let fileType = ".png";
         let img_file;
         let img_path = "uploads/";
-        img_file = filedata.filename; 
+        img_file = filedata.filename;
         sharp(img_path+img_file)
             .resize(400, 600)
             .toFormat('png')
             .toFile(`${UserAvatarsPath}${img_file}${fileType}`, (err) => {
                 if(err) {
                     console.log(err);
-                    return response.status(400).send(err); 
+                    return response.status(400).send(err);
                 }else{
                     console.log(img_file+fileType);
                     return response.status(200).send(img_file+fileType);
@@ -1540,7 +1556,7 @@ app.post("/savestyle", jsonParser, function(request, response){
 });
 function getCharaterFile(directories,response,i){ //old need del
     if(directories.length > i){
-        
+
         fs.stat(charactersPath+directories[i]+'/'+directories[i]+".json", function(err, stat) {
             if (err == null) {
                 fs.readFile(charactersPath+directories[i]+'/'+directories[i]+".json", 'utf8', (err, data) => {
@@ -1579,15 +1595,15 @@ function getDirectories(path) {
 return new Date(fs.statSync(path + '/' + a).mtime) - new Date(fs.statSync(path + '/' + b).mtime);
 }).reverse();
 }
-//***********Novel.ai API 
+//***********Novel.ai API
 app.post("/getstatus_novelai", jsonParser, function(request, response_getstatus_novel =response){
-    
+
     if(!request.body) return response_getstatus_novel.sendStatus(400);
     api_key_novel = request.body.key;
     var data = {};
     var args = {
         data: data,
-        
+
         headers: { "Content-Type": "application/json",  "Authorization": "Bearer "+api_key_novel}
     };
     client.get(api_novelai+"/user/subscription",args, function (data, response) {
@@ -2082,7 +2098,7 @@ app.post("/getallchatsofchatacter", jsonParser, function(request, response){
                 input: fileStream,
                 crlfDelay: Infinity
             });
-            let firstLine; 
+            let firstLine;
             let lastLine;
             rl.on('line', (line) => {
                 if (!firstLine) {
@@ -2108,7 +2124,7 @@ app.post("/getallchatsofchatacter", jsonParser, function(request, response){
                         chatData[i]['mes'] = lastLineData['mes'];
                         chatData[i]['mes_send_date'] = lastLineData['send_date'];
                         ii--;
-                        if(ii === 0){ 
+                        if(ii === 0){
                             response.send(chatData);
                         }
                     }else{
@@ -2190,8 +2206,8 @@ app.post("/importcharacter", urlencodedParser, async function(request, response)
 });
 function parseV2CharacterCard(jsonData){
     return {
-        name: jsonData.data.name, 
-        description: jsonData.data.description, 
+        name: jsonData.data.name,
+        description: jsonData.data.description,
         personality: jsonData.data.personality,
         first_mes: jsonData.data.first_mes,
         mes_example: jsonData.data.mes_example,
@@ -2539,6 +2555,28 @@ app.listen(server_port, listenIp, function() {
     console.log('TavernAI has started and is available on IP: 127.0.0.1 at PORT: '+server_port);
     console.log('TavernAI is bound to interface: ' + listenIp)
 });
+
+app.listen(server_port, listenIpV6, function() {
+    if(process.env.colab !== undefined){
+        if(process.env.colab == 2){
+            is_colab = false;
+        }
+    }
+    console.log('Launching...');
+    initializationCards();
+    clearUploads();
+    initCardeditor();
+    const autorunUrl = new URL(
+            ('http://') +
+            ('127.0.0.1') +
+            (':' + server_port)
+            );
+    if(autorun) open(autorunUrl.toString());
+    console.log('TavernAI has started and is available on IP: 127.0.0.1 at PORT: '+server_port);
+    console.log('TavernAI is bound to interface: ' + listenIpV6)
+});
+
+
 function initializationCards() {
     const folderPath = charactersPath;
     // get all files in folder
@@ -2573,13 +2611,13 @@ function initializationCards() {
                     if (!metadata || !metadata.name) {
                         continue;
                     }
-                    
+
                     if(metadata.public_id){ // Check if public_id already exist then pass to next card
                         if(metadata.public_id.length === 32){
                             continue;
                         }
                     }
-                    
+
 
                     metadata = charaFormatData(metadata);
                     await charaWrite(filePath, JSON.stringify(metadata), charactersPath + file.replace(`.${this_format}`, ''), this_format);
@@ -2590,7 +2628,7 @@ function initializationCards() {
                     console.log(error);
                 }
             }
-            
+
             // Change format
             for (const file of files) {
                 try {
@@ -2683,12 +2721,12 @@ function initCardeditor() {
     }
 }
 /*
-//                                                                                       
-//     'T`           *H*           +E+              +E+           (N(           =D=      
-//    (o o)         (o o)         (o o)            (o o)         (o o)         (o o)     
+//
+//     'T`           *H*           +E+              +E+           (N(           =D=
+//    (o o)         (o o)         (o o)            (o o)         (o o)         (o o)
 //ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo----ooO--(_)--Ooo-ooO--(_)--Ooo-ooO--(_)--Ooo-
-//                                                                                       
-//                                                                                       
+//
+//
 //async function processImage(imagePath) {
   //for (let i = 0; i < 500; i++) {
     //const processedImagePath = imagePath;
