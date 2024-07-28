@@ -65,7 +65,7 @@ if (config.listenIp) {
 }
 
 
-if (!whitelistMode && ipaddr.parse(listenIpV6).range() !== 'loopback' && ipaddr.parse(listenIp).range() !== 'loopback') {
+if (!whitelistMode && (ipaddr.parse(listenIpV6).range() !== 'loopback' || ipaddr.parse(listenIp).range() !== 'loopback')) {
     console.warn(
 `WARNING: You have configured TavernAI to listen on an IP address that
          is not a loopback address ('${listenIpV6}', and/or '${listenIp}'), and you have not enabled
@@ -75,6 +75,7 @@ if (!whitelistMode && ipaddr.parse(listenIpV6).range() !== 'loopback' && ipaddr.
          enable and configure white list mode.`
     );
 }
+const preferV4 = config.preferV4;
 const autorun = config.autorun;
 const characterFormat = config.characterFormat;
 const charaCloudMode = config.charaCloudMode;
